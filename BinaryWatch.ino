@@ -1,18 +1,18 @@
 // Section 1 is hours/minutes depending on the mode
-const int section1Pins = {0,1,2,3,4,5,6};
+const int section1Pins[] = { 0, 1, 2, 3, 4, 5, 6};
 // Section 2 is minutes/seconds depending on the mode
-const int[] section2Pins = {7,8,9,10,11};
+const int section2Pins[] = { 7, 8, 9, 10, 11};
 
 // Pizeo pin for buzzer
-const int piezoPin = A4;
+const byte piezoPin = A4;
 
 // Using analog to free up digital pins
-const int toggleButtonPin = A0; // Button to start/stop progress
-const int section1ButtonPin = A1; // Button to modify section 1 value
-const int section2ButtonPin = A2; // Button to modify section 2 value
+const byte toggleButtonPin = A0; // Button to start/stop progress
+const byte section1ButtonPin = A1; // Button to modify section 1 value
+const byte section2ButtonPin = A2; // Button to modify section 2 value
 
 // Potentiometer to control mode
-const int modeSelectorPin = A3;
+const byte modeSelectorPin = A3;
 
 // Number of ms in a second
 const int MS_IN_SECOND = 1000;
@@ -38,15 +38,32 @@ int swSeconds = 0; // Seconds on stopwatch
 unsigned long swLastUpdatedTime = 0; // Time when stopwatch display was last updated
 bool swStopped = true;
 
-// Enumeration to keep track of watch mode/state
-enum State : int {
-  timeClock = 0, // Clock mode
-  stopwatch = 1, // Stopwatch mode
-  timer = 2 // Timer mode
-}
+// timeClock = 0, // Clock mode
+// stopwatch = 1, // Stopwatch mode
+// timer = 2 // Timer mode
 
 // Track current state - starts off on clock mode
-State currentState = timeClock;
+int currentState = 0;
+
+// Writes binary data to specified output pins
+void writeBinaryData(int pins[], int num) {
+  int data[arrayLen] = {0}; // 6 bits of data needed
+  // Quotient left over
+  int quotient = num;
+  // Keep finding next binary value until number has been fully represented
+  while (quotient != 0) {
+    // Take the remainder and put it in the right place
+    data[--arrayLen] = quotient % 2;
+    quotient = quotient/2; // Calculate next quotient
+  }
+  for (int i = 0; i < arrayLen; i++) {
+    if (data[i] == 1) {
+      digitalWrite(pins[i], HIGH);
+    } else {
+      digitalWrite(pins[i], LOW);
+    }
+  }
+}
 
 // Set up pins
 void setup() {
@@ -88,15 +105,17 @@ void loop() {
 void timeStepRouter() {
    // Determine which function to call based on the state
    switch (currentState) {
-    case timeClock:
+    case 0:
       ckUpdate();
       break;
-    case stopwatch:
+    case 1:
       swUpdate();
       break;
-    case timer:
+    case 2:
       tmUpdate();
       break; 
+    default:
+      break;
   }
 }
 
@@ -109,13 +128,9 @@ void ckUpdate() {
     ckHours++;
     ckMinutes++;
 
-    // Get binary representation for each value
-    int[] hoursBinaryRep = binaryRepresentation(ckSeconds);
-    int[] minsBinaryRep = binaryRepresentation(ckMinutes);
-
-    // Write the obtained binary representation for each value to the display
-    writeBinaryData(section1Pins, hoursBinaryRep);
-    writeBinaryData(section2Pins, minsBinaryRep);
+    // Write thebinary representation for each value to the display
+    writeBinaryData(section1Pins, ckHours);
+    writeBinaryData(section2Pins, ckMinutes);
     
     // Update the last updated time
     ckLastUpdatedTime = millis();
@@ -131,13 +146,9 @@ void swUpdate() {
     swMinutes++;
     swSeconds++;
 
-    // Get binary representation for each value
-    int[] minsBinaryRep = binaryRepresentation(swMinutes);
-    int[] secsBinaryRep = binaryRepresentation(swSeconds);
-
-    // Write the obtained binary representation for each value to the display
-    writeBinaryData(section1Pins, minsBinaryRep);
-    writeBinaryData(section2Pins, secsBinaryRep);
+    // Write the binary representation for each value to the display
+    writeBinaryData(section1Pins, swMinutes);
+    writeBinaryData(section2Pins, swSeconds);
 
     // Update the last updated time
     swLastUpdatedTime = millis();
@@ -153,19 +164,15 @@ void tmUpdate() {
     tmMinutes--;
     tmSeconds--;
     
-    // Get binary representation for each value
-    int[] minsBinaryRep = binaryRepresentation(tmMinutes);
-    int[] secsBinaryRep = binaryRepresentation(tmSeconds);
-
-    // Get binary representation for each value
-    writeBinaryData(section1Pins, minsBinaryRep);
-    writeBinaryData(section2Pins, secsBinaryRep);
+    // Write value to screen
+    writeBinaryData(section1Pins, tmMinutes);
+    writeBinaryData(section2Pins, tmSeconds);
 
     // If the timer has expired, buzz the piezo
     if (tmMinutes == 0 && tmSeconds == 0) {
       digitalWrite(piezoPin, HIGH);
       delay(1000); // Wait 1 second before turning off buzzer
-      digitalWrite(pizeoPin, LOW);
+      digitalWrite(piezoPin, LOW);
       tmStopped = true; // Mark the timer as stopped
     }
 
@@ -176,17 +183,17 @@ void tmUpdate() {
 
 // Edit button for section 1 - reset button for the stopwatch
 void editSection1() {
-  if (currentState = timeClock) {
+  if (currentState = 0) {
     ckHours++;
     if (ckHours >= 24) {
       ckHours = ckHours-24;    
     }
-  } else if (currentState == stopwatch) {
+  } else if (currentState == 1) {
     swMinutes = 0;
     swSeconds = 0;
     swLastUpdatedTime = 0;
     swStopped = true;
-  } else if (currentState == timer) {
+  } else if (currentState == 2) {
     tmMinutes++;
     if (tmMinutes >= 60) {
       tmMinutes = tmMinutes-60;    
@@ -196,17 +203,17 @@ void editSection1() {
 
 // Edit button for section 2 - another reset button for the stopwatch
 void editSection2() {
-  if (currentState = timeClock) {
+  if (currentState = 0) {
     ckMinutes++;
     if (ckMinutes >= 60) {
       ckHours = ckHours-60;    
     }
-  } else if (currentState == stopwatch) {
+  } else if (currentState == 1) {
     swMinutes = 0;
     swSeconds = 0;
     swLastUpdatedTime = 0;
     swStopped = true;
-  } else if (currentState == timer) {
+  } else if (currentState == 2) {
     tmSeconds++;
     if (tmSeconds >= 60) {
       tmSeconds = tmSeconds-60;    
@@ -217,22 +224,22 @@ void editSection2() {
 // Stop button - doesn't do anything in clock mode
 void stopButton() {
   switch (currentState) {
-    case timeClock:
+    case 0:
       break;
-    case stopwatch:
+    case 1:
       swStopped = !swStopped;
       break;
-    case timer:
+    case 2:
       tmStopped = !tmStopped;
       break; 
   }
 }
 
 // Sets a new state and clears out old values
-void changeState(State newState) {
+void changeState(int newState) {
   // Clear out all values
   ckHours = 0;
-  kMinutes = 0;
+  ckMinutes = 0;
   ckLastUpdatedTime = 0;
   tmMinutes = 0;
   tmSeconds = 0;
@@ -251,26 +258,4 @@ void changeState(State newState) {
   
   // Update the state
   currentState = newState;
-}
-
-// Converts a number to binary in arraay
-int[] binaryRepresentation(int num) {
-  int binary[arrayLen] = {0}; // 6 bits of data needed
-  int quotient = num;
-  while (quotient != 0) {
-    binary[--arrayLen] = quotient % 2;
-    quotient = quotient/2; // Calculate next quotient
-  }
-  return arrayLen;
-}
-
-// Writes binary data to specified output pins
-void writeBinaryData(int[] pins, int[] data) {
-  for (int i = 0; i < arrayLen; i++) {
-    if (data[i] == 1) {
-      digitalWrite(pins[i], HIGH);
-    } else {
-      digitalWrite(pins[i], LOW);
-    }
-  }
 }
